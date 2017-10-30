@@ -1,5 +1,7 @@
 <section>
   <%= form_for @work do |f| %>
+    <% f.hidden_field :user_creator, value: session[:user_id] %>
+    
     <%= f.label :category %>
     <%= f.select :category, Work::CATEGORIES %>
 

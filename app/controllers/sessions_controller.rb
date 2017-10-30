@@ -1,26 +1,38 @@
 class SessionsController < ApplicationController
-  def login_form
-  end
+  skip_before_action :require_login, only: [:login]
+  # def login_form
+  # end
 
   def login
-    username = params[:username]
-    if username and user = User.find_by(username: username)
-      session[:user_id] = user.id
-      flash[:status] = :success
-      flash[:result_text] = "Successfully logged in as existing user #{user.username}"
-    else
-      user = User.new(username: username)
-      if user.save
+    auth_hash = request.env['omniauth.auth']
+    if auth_hash['uid']
+      #if there is a user id check if the user is new or already exists
+      user = User.find_by(provider: params[:provider], uid: auth_hash['uid'])
+      if user.nil?
+        #user is new
+        user = User.from_auth_hash(params[:provider], auth_hash)
+        if user.save
+          #new user saves fine
+          session[:user_id] = user.id
+          flash[:status] = :success
+          flash[:result_text] = "Successfully logged in as new user #{user.name}"
+        else
+          #new user cannot be saved, ex. the auth_hash has no provider
+          flash[:status] = :failure
+          flash[:result_text] = "Could not log on as new user #{auth_hash['name']}"
+        end
+
+      else
+        #user has logged in before
         session[:user_id] = user.id
         flash[:status] = :success
-        flash[:result_text] = "Successfully created new user #{user.username} with ID #{user.id}"
-      else
-        flash.now[:status] = :failure
-        flash.now[:result_text] = "Could not log in"
-        flash.now[:messages] = user.errors.messages
-        render "login_form", status: :bad_request
-        return
+        flash[:result_text] = "Successfully logged in as new user #{user.name}"
       end
+
+    else
+      #auth hash has no user id
+      flash[:status] = :failure
+      flash[:result_text] = "Authentication with github failed"
     end
     redirect_to root_path
   end
@@ -28,7 +40,7 @@ class SessionsController < ApplicationController
   def logout
     session[:user_id] = nil
     flash[:status] = :success
-    flash[:result_text] = "Successfully logged out"
+    flash[:result_text] = "You have been logged out"
     redirect_to root_path
   end
 end

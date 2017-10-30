@@ -2,12 +2,13 @@ class Work < ApplicationRecord
   CATEGORIES = %w(album book movie)
   has_many :votes, dependent: :destroy
   has_many :ranking_users, through: :votes, source: :user
+  has_one :users
 
   validates :category,  presence: true,
-                        inclusion: { in: CATEGORIES }
+  inclusion: { in: CATEGORIES }
 
   validates :title, presence: true,
-                    uniqueness: { scope: :category }
+  uniqueness: { scope: :category }
 
   # This is called a model filter, and is very similar to a controller filter.
   # We want to fixup the category *before* we validate, because
@@ -43,7 +44,7 @@ class Work < ApplicationRecord
     where(category: category).order(vote_count: :desc).limit(10)
   end
 
-private
+  private
   def fix_category
     if self.category
       self.category = self.category.downcase.singularize

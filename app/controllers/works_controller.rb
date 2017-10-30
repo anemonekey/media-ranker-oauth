@@ -2,6 +2,7 @@ class WorksController < ApplicationController
   # We should always be able to tell what category
   # of work we're dealing with
   before_action :category_from_work, except: [:root, :index, :new, :create]
+  skip_before_action :require_login, only: [:root]
 
   def root
     @albums = Work.best_albums
@@ -38,6 +39,9 @@ class WorksController < ApplicationController
   end
 
   def edit
+    unless check_user
+      redirect_to works_path
+    end
   end
 
   def update
@@ -55,10 +59,14 @@ class WorksController < ApplicationController
   end
 
   def destroy
-    @work.destroy
-    flash[:status] = :success
-    flash[:result_text] = "Successfully destroyed #{@media_category.singularize} #{@work.id}"
-    redirect_to root_path
+    if check_user
+      @work.destroy
+      flash[:status] = :success
+      flash[:result_text] = "Successfully destroyed #{@media_category.singularize} #{@work.id}"
+      redirect_to root_path
+    else
+      redirect_to works_path
+    end
   end
 
   def upvote
@@ -90,12 +98,23 @@ class WorksController < ApplicationController
 
 private
   def media_params
-    params.require(:work).permit(:title, :category, :creator, :description, :publication_year)
+    params.require(:work).permit(:title, :category, :creator, :description, :publication_year, :writer)
   end
 
   def category_from_work
     @work = Work.find_by(id: params[:id])
     render_404 unless @work
     @media_category = @work.category.downcase.pluralize
+  end
+
+  def check_user
+    @work = Work.find_by(id: params[:id])
+
+    if session[:user_id] != @work.writer
+      flash[:status] = :failure
+      flash[:result_text] = "You did not create this item"
+      return false
+    end
+    return true
   end
 end
